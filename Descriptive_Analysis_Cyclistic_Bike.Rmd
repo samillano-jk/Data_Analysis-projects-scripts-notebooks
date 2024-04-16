@@ -1,0 +1,341 @@
+---
+title: "Bike-Share Analysis"
+author: "John Kevin Samillano"
+date: "2024-04-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Business Task
+### Find out how annual members and casual riders use Cyclistic bikes differently
+
+
+
+## Setting Up
+Loading the necessary libraries for analysis
+
+```{r library, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(data.table)
+library(viridis)
+
+```
+<br>
+
+## Loading the datasets
+Here we're loading the cyclistic_bikeshare datasets from March 2023 to February 2024
+```{r loading sample, message=FALSE, warning=FALSE}
+df03_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202303-divvy-tripdata.csv")
+```
+
+
+```{r import datasets, message=FALSE, warning=FALSE, echo=FALSE}
+
+df04_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202304-divvy-tripdata.csv")
+df05_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202305-divvy-tripdata.csv")
+df06_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202306-divvy-tripdata.csv")
+df07_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202307-divvy-tripdata.csv")
+df08_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202308-divvy-tripdata.csv")
+df09_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202309-divvy-tripdata.csv")
+df10_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202310-divvy-tripdata.csv")
+df11_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202311-divvy-tripdata.csv")
+df12_23 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202312-divvy-tripdata.csv")
+df01_24 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202401-divvy-tripdata.csv")
+df02_24 <- read_csv("C:/Users/samil/Downloads/Cyclistic_Bikeshare_Trips_202303_to_202402/202402-divvy-tripdata.csv")
+
+```
+
+
+<br>
+<br>
+<br>
+
+
+## Data Wrangling 
+
+Checking the structure of each dataframes
+
+
+```{r}
+
+datasets <- list(df03_23, df04_23, df05_23, df06_23, df07_23, df08_23, df09_23, df10_23, df11_23, df12_23, df01_24, df02_24)
+
+for(data in datasets) {
+  glimpse(data)
+  
+}
+
+
+
+
+
+```
+
+
+
+
+
+
+
+The data looks compatible so we're combining the datasets into one
+```{r Combining datasets, message=FALSE, warning=FALSE}
+
+all_trips <- rbind(df03_23, df04_23, df05_23, df06_23, df07_23, df08_23, df09_23, df10_23, df11_23, df12_23, df01_24, df02_24)
+
+
+```
+
+Filtering the data needed for analysis. Adding the day, month, year, and ride_length columns for all datasets.
+
+```{r}
+all_trips <- all_trips %>%
+  select(-start_lng, -start_lat, -end_lat, -end_lng, -start_station_name, -start_station_id, -end_station_name, -end_station_id) %>% 
+  mutate(ride_length=ended_at - started_at, day=format(as.Date(started_at), "%A"), month=format(as.Date(started_at), "%B"), year= year(started_at)) %>% 
+  select(-ended_at, -started_at)
+```
+
+
+<br>
+
+### NA values
+
+Looking for NA values
+```{r NA_values, message=FALSE, warning=FALSE, , echo=FALSE}
+colSums(is.na(all_trips))
+```
+<br>
+
+### Data structure
+
+Checking the structure of the dataset
+```{r str yearly_summary, echo=FALSE, message=FALSE, warning=FALSE}
+
+print(paste("Rows:", dim(all_trips)[1], "     ", "Columns:", dim(all_trips)[2], sep=" "))
+
+summary(all_trips)
+
+```
+```{r, echo=FALSE}
+print("Columns: storage type: class type")
+print("_________________________________")
+for (name in colnames(all_trips)) {
+  print(paste(name, ":", typeof(all_trips[[name]]), ":", class(all_trips[[name]]), sep=" "))
+}
+
+```
+
+
+The dataset variables/columns are in the right formats
+
+<br>
+
+### Finding duplicates
+
+Checking the ride_ids for duplicates
+```{r, echo=FALSE}
+
+unique_id <- length(unique(all_trips$ride_id))
+all_id <- length(all_trips$ride_id)
+paste("Total number of ride_id:", all_id,  sep=" ")
+paste("Total number of unique ride_id:", unique_id, sep=" ")
+
+```
+
+Looking for duplicates in the data
+```{r finding duplicates, echo=FALSE, message=FALSE, warning=FALSE}
+                  
+summary_table <- setDT(all_trips)
+# Using the setDT to set the dataframe into a data.table for faster processing
+
+duplicates <- summary_table[duplicated(summary_table, fromLast=TRUE)]
+
+print(duplicates)
+
+```
+Here we found that there are no duplicates in our data
+
+<br>
+
+### Filtering
+
+Checking for zero and negative values
+```{r filter1, echo=FALSE, message=FALSE, warning=FALSE}
+
+all_trips %>% 
+  select(ride_length) %>% 
+  filter(ride_length == 0)  
+
+all_trips %>% 
+  select(ride_length) %>% 
+  filter(ride_length < 0)
+
+```
+
+
+Here we got some suspicious data showing that the ride_length is 0 or even negative which needs further inquiries about the data owner, but for now we're going to remove it
+
+It's 1300 rows only which will unlikely affect our data of 5 million rows, so we will filter them out
+
+
+Now where checking the upper ranges of ride_length column
+```{r}
+
+all_trips %>% 
+  select(ride_length) %>% 
+  filter(ride_length > 100000) %>% 
+  arrange(-ride_length)
+
+```
+Here we can see that the ride_length is unreasonably long that it takes 5 million seconds or 68 days
+
+The same goes for other data points and this needs further analysis and inquiries about the data 
+There are 1078 rows of data points so were removing it for now until further clarification
+
+So we're only going to take ride_length that doesn't exceed 1 day
+
+<br>
+
+Here we filter out ride_length that are zero and negative and also ride_length that exceeds 1 day
+``` {r}
+
+all_trips_v2 <- all_trips %>% 
+  filter(ride_length > 0 & ride_length <= 100000)
+
+
+```
+
+Now where done with the cleaning process
+
+
+<br>
+<br>
+
+
+
+
+
+## Descriptive Analysis
+
+### Summary
+
+```{r}
+summary(all_trips_v2$ride_length)
+```
+
+First, making a summarization of ride_length per member_casual
+```{r}
+basic_summary <- all_trips_v2 %>% 
+  group_by(member_casual) %>% 
+  summarize(mean_ride_length=mean(ride_length), median_ride_length=median(ride_length), max_ride_length=max(ride_length), min_ride_length=min(ride_length))
+
+print(basic_summary, n=nrow(basic_summary))
+
+
+```
+
+
+### Total number of trips: Casual vs Member
+```{r}
+all_trips_v2$day <- factor(all_trips_v2$day, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+
+all_trips_v2 %>% 
+  group_by(member_casual, day) %>% 
+  summarize(num_trips=length(ride_id), mean_ride_length=mean(ride_length), .groups="drop") %>% 
+  arrange(day, member_casual)
+
+```
+
+#### Plot
+```{r Ride length, message=FALSE, warning=FALSE, echo=FALSE}
+all_trips_v2 %>% 
+  group_by(member_casual, day) %>% 
+  summarize(num_rides = length(ride_id), mean_ride=mean(ride_length)) %>% 
+ggplot(aes(day, num_rides, fill=member_casual)) + geom_col(position="dodge") + scale_y_continuous(labels=scales::comma_format(scale=1e-3))
+
+
+
+
+```
+Here we can see that annual members have higher number of rides compared to casual users and that annual members have an increase in number of rides during weekdays, the opposite of casual users
+
+
+<br>
+
+
+
+### Average ride duration: Casual vs Member
+```{r , echo=FALSE, message=FALSE, warning=FALSE}
+
+all_trips_v2 %>% 
+  group_by(member_casual, day) %>% 
+  summarize(num_rides = length(ride_id), mean_ride=mean(ride_length)) %>% 
+ggplot(aes(day, mean_ride, fill=member_casual)) + geom_col(position="dodge")
+
+ 
+
+```
+
+
+Here we can see that casual riders have longer rides compared to annual members and higher ride length on weekends
+
+
+Saving the summaries for visualization
+```{r}
+ride_length <- all_trips_v2 %>% 
+  group_by(member_casual, day) %>% 
+  summarize(num_trips=length(ride_id), mean_ride_length=mean(ride_length), .groups="drop") %>% 
+  arrange(day, member_casual)
+
+
+overall_trips <- all_trips_v2 %>% 
+  group_by(member_casual, day) %>% 
+  summarize(num_trips=length(ride_id), mean_ride_length=mean(ride_length), .groups="drop") %>% 
+  arrange(day, member_casual)
+
+
+# write.csv(ride_length, file = "avg_ride_length.csv")
+# write.csv(overall_trips, file = "total_trips.csv")
+
+```
+
+
+
+Summarizing the data for member and casual user choice of bike type and average ride (seconds) in a year
+```{r}
+all_trips_v2 %>% 
+  group_by(member_casual, rideable_type) %>% 
+  summarize(bike_count=length(rideable_type), avg_ride=mean(ride_length), .groups="drop")
+  
+
+  # write.csv(file="rideable_type.csv")
+
+```
+
+Comparing annual member vs casual users
+```{r, message=FALSE, warning=FALSE}
+all_trips_v2 %>% 
+  group_by(member_casual) %>% 
+  summarize(num_trips = length(ride_id), mean_ride_length=mean(ride_length)) %>% 
+  mutate(total = num_trips*mean_ride_length)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
