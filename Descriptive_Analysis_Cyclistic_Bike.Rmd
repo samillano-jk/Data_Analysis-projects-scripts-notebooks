@@ -9,8 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+/* The dataset used in this analysis is from the divvy website of Lyft Bikes and Scooters (LLC) */
+
 ## Business Task
-### Find out how annual members and casual riders use Cyclistic bikes differently
+### Find out how annual members and casual riders use bikes differently
 
 
 
